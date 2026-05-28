@@ -114,6 +114,90 @@ def heatmap(
     plt.close(fig)
 
 
+def coop_over_time_animated(
+    stats: list[AgentStats],
+    out_path: Path,
+    title: str = "Cooperation Rate Over Time",
+    window: int = 5,
+    fps: int = 12,
+    dpi: int = 100,
+) -> Path:
+    """Animated cooperation-rate line chart. Returns the path actually written.
+
+    Prefers .mp4 (requires ffmpeg); falls back to .gif via Pillow if ffmpeg is absent.
+    """
+    from matplotlib.animation import FuncAnimation, FFMpegWriter, PillowWriter  # type: ignore[attr-defined]
+
+    series: list[tuple[str, np.ndarray, np.ndarray]] = []
+    for s in stats:
+        if not s.coop_by_round:
+            continue
+        rates = np.array(s.coop_by_round)
+        if len(rates) >= window:
+            kernel = np.ones(window) / window
+            smoothed = np.convolve(rates, kernel, mode="valid")
+            x = np.arange(window, len(rates) + 1)
+        else:
+            smoothed = rates
+            x = np.arange(1, len(rates) + 1)
+        series.append((_short(s.agent), x, smoothed))
+
+    if not series:
+        return out_path
+
+    data_frames = max(len(x) for _, x, _ in series)
+    hold_frames = fps  # 1-second freeze at the end
+    n_frames = data_frames + hold_frames
+    x_min = int(min(x[0] for _, x, _ in series))
+    x_max = int(max(x[-1] for _, x, _ in series))
+
+    fig, ax = plt.subplots(figsize=HERO_SIZE)
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(-0.05, 1.10)
+    ax.set_xlabel("Round", fontsize=11)
+    ax.set_ylabel("Cooperation Rate", fontsize=11)
+    ax.set_title(title, fontsize=14, fontweight="bold", pad=12)
+    ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1))
+    ax.grid(alpha=0.3)
+    ax.spines[["top", "right"]].set_visible(False)
+
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]  # type: ignore[index]
+    line_artists: list[tuple[object, np.ndarray, np.ndarray]] = []
+    for i, (label, x, y) in enumerate(series):
+        (line,) = ax.plot([], [], label=label, linewidth=2, color=colors[i % len(colors)])
+        line_artists.append((line, x, y))
+
+    ax.legend(fontsize=10, framealpha=0.7)
+    round_text = ax.text(0.97, 0.05, "", transform=ax.transAxes,
+                         ha="right", va="bottom", fontsize=10, color="gray")
+    fig.tight_layout()
+
+    def update(frame: int) -> list[object]:
+        end = min(frame + 1, data_frames)
+        for line, x, y in line_artists:
+            clip = min(end, len(x))
+            line.set_data(x[:clip], y[:clip])  # type: ignore[attr-defined]
+        _, first_x, _ = line_artists[0]
+        cur_round = int(first_x[min(end - 1, len(first_x) - 1)])
+        round_text.set_text(f"Round {cur_round}")
+        return [la[0] for la in line_artists] + [round_text]
+
+    anim = FuncAnimation(fig, update, frames=n_frames, interval=1000 // fps, blit=True)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if out_path.suffix.lower() == ".mp4":
+        try:
+            anim.save(str(out_path), writer=FFMpegWriter(fps=fps, bitrate=1800), dpi=dpi)
+            plt.close(fig)
+            return out_path
+        except FileNotFoundError:
+            out_path = out_path.with_suffix(".gif")
+
+    anim.save(str(out_path), writer=PillowWriter(fps=fps), dpi=dpi)
+    plt.close(fig)
+    return out_path
+
+
 def behavioral(
     stats: list[AgentStats],
     out_path: Path,

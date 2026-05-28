@@ -354,6 +354,13 @@ def analyze(
     _plots.behavioral(stats, out / "behavioral.png", title=f"Forgiveness vs Retaliation — {tournament_id}")
     console.print("  [green]behavioral.png[/green]")
 
+    # 5. Animated cooperation over time
+    anim_path = _plots.coop_over_time_animated(
+        stats, out / "coop_animated.mp4",
+        title=f"Cooperation Rate Over Time — {tournament_id}",
+    )
+    console.print(f"  [green]{anim_path.name}[/green]")
+
     # Print stats table
     table = Table(title="Agent Stats")
     table.add_column("Agent")
