@@ -26,7 +26,10 @@ class ClaudeAgent:
     @property
     def client(self) -> anthropic.Anthropic:
         if self._client is None:
-            self._client = anthropic.Anthropic()
+            self._client = anthropic.Anthropic(
+                timeout=60.0,    # 60s per call — prevents indefinite hangs
+                max_retries=3,   # retry on transient 5xx / network errors
+            )
         return self._client
 
     def reset(self, game_description: str = "") -> None:
