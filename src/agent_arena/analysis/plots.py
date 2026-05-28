@@ -355,7 +355,8 @@ def coop_over_time_animated(
         line_artists.append((line, x, y))
 
     leg = ax.legend(fontsize=10, framealpha=0.3, facecolor=_BG2,
-                    edgecolor=_GRID, labelcolor=_FG)
+                    edgecolor=_GRID, labelcolor=_FG,
+                    loc="center left", bbox_to_anchor=(0.02, 0.5))
     for text in leg.get_texts():
         text.set_color(_FG)
 
