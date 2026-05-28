@@ -71,14 +71,16 @@ def _short(name: str) -> str:
 
 
 def _display(name: str) -> str:
+    # Model-qualified agent (e.g. claude-sonnet-4-6:selfish, claude-haiku-...:neutral)
+    if ":" in name:
+        model_part, persona = name.split(":", 1)
+        for key, prefix in _MODEL_PREFIX.items():
+            if key in model_part:
+                return f"{prefix}  ·  {persona}"
+    # Rule-based bot or bare name
     short = _short(name)
     if short in _DISPLAY:
         return _DISPLAY[short]
-    parts = name.split(":")
-    if len(parts) == 2:
-        for key, prefix in _MODEL_PREFIX.items():
-            if key in parts[0]:
-                return f"{prefix}  ·  {parts[1]}"
     return short.replace("_", " ").title()
 
 
