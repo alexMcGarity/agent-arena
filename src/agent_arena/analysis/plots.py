@@ -122,11 +122,8 @@ def coop_over_time_animated(
     fps: int = 12,
     dpi: int = 100,
 ) -> Path:
-    """Animated cooperation-rate line chart. Returns the path actually written.
-
-    Prefers .mp4 (requires ffmpeg); falls back to .gif via Pillow if ffmpeg is absent.
-    """
-    from matplotlib.animation import FuncAnimation, FFMpegWriter, PillowWriter  # type: ignore[attr-defined]
+    """Animated cooperation-rate line chart. Returns the path actually written (.mp4)."""
+    import imageio.v3 as iio  # type: ignore[import-untyped]
 
     series: list[tuple[str, np.ndarray, np.ndarray]] = []
     for s in stats:
@@ -172,28 +169,25 @@ def coop_over_time_animated(
                          ha="right", va="bottom", fontsize=10, color="gray")
     fig.tight_layout()
 
-    def update(frame: int) -> list[object]:
-        end = min(frame + 1, data_frames)
-        for line, x, y in line_artists:
-            clip = min(end, len(x))
-            line.set_data(x[:clip], y[:clip])  # type: ignore[attr-defined]
-        _, first_x, _ = line_artists[0]
-        cur_round = int(first_x[min(end - 1, len(first_x) - 1)])
-        round_text.set_text(f"Round {cur_round}")
-        return [la[0] for la in line_artists] + [round_text]
-
-    anim = FuncAnimation(fig, update, frames=n_frames, interval=1000 // fps, blit=True)
+    # Render each frame to a numpy array and write directly via imageio/pyav
+    out_path = out_path.with_suffix(".mp4")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if out_path.suffix.lower() == ".mp4":
-        try:
-            anim.save(str(out_path), writer=FFMpegWriter(fps=fps, bitrate=1800), dpi=dpi)
-            plt.close(fig)
-            return out_path
-        except FileNotFoundError:
-            out_path = out_path.with_suffix(".gif")
+    with iio.imopen(str(out_path), "w", plugin="pyav") as writer:
+        writer.init_video_stream("mpeg4", fps=fps)  # type: ignore[attr-defined]
+        for frame_idx in range(n_frames):
+            end = min(frame_idx + 1, data_frames)
+            for line, x, y in line_artists:
+                clip = min(end, len(x))
+                line.set_data(x[:clip], y[:clip])  # type: ignore[attr-defined]
+            _, first_x, _ = line_artists[0]
+            cur_round = int(first_x[min(end - 1, len(first_x) - 1)])
+            round_text.set_text(f"Round {cur_round}")
+            fig.canvas.draw()
+            w_px, h_px = fig.canvas.get_width_height()
+            buf = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)  # type: ignore[attr-defined]
+            writer.write_frame(buf.reshape(h_px, w_px, 4)[:, :, :3])  # type: ignore[attr-defined]
 
-    anim.save(str(out_path), writer=PillowWriter(fps=fps), dpi=dpi)
     plt.close(fig)
     return out_path
 

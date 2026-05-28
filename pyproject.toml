@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.0",
     "pandas>=2.0",
     "matplotlib>=3.7",
+    "imageio[pyav]>=2.34",
     "plotly>=5.0",
     "typer>=0.12",
     "python-dotenv>=1.0",
@@ -45,7 +46,7 @@ strict = true
 python_version = "3.12"
 
 [[tool.mypy.overrides]]
-module = ["plotly.*", "pandas.*"]
+module = ["plotly.*", "pandas.*", "imageio.*", "av.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
