@@ -1,0 +1,41 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Tournament data (committed samples only)
+data/runs/*
+!data/runs/samples/
+!data/runs/.gitignore
+
+# Articles (personal deliverable, not part of the library)
+articles/
+
+# Claude Code / Anthropic dev tooling
+CLAUDE.md
+.claude/
+
+# Python build + cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.venv/
+venv/
+env/
+.coverage
+htmlcov/
+.eggs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebooks (scratch work, not reproducibility artefacts)
+notebooks/
