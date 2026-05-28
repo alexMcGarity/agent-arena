@@ -337,31 +337,33 @@ def analyze(
     stats = compute_all(matches, agents, n_rounds)
     h2h = head_to_head(matches)
 
+    game_label = summary.game.replace("_", " ").title()
+    meta = f"{game_label}  ·  {summary.rounds_per_match} rounds  ·  {summary.total_matches} matches"
+
     # 1. Score bar
-    _plots.score_bar(
-        stats, out / "score_bar.png",
-        title="Tournament Scoreboard",
-        subtitle=f"{summary.game}  ·  {summary.rounds_per_match} rounds  ·  {summary.total_matches} matches  ·  {tournament_id}",
-    )
+    _plots.score_bar(stats, out / "score_bar.png",
+                     title="Tournament Scoreboard", subtitle=meta)
     console.print("  [green]score_bar.png[/green]")
 
     # 2. Cooperation over time
-    _plots.coop_over_time(stats, out / "coop_over_time.png", title=f"Cooperation Rate Over Time — {tournament_id}")
+    _plots.coop_over_time(stats, out / "coop_over_time.png",
+                          title="Cooperation Rate Over Time")
     console.print("  [green]coop_over_time.png[/green]")
 
     # 3. Head-to-head heatmap
     _plots.heatmap(h2h, agents, out / "heatmap.png", rounds_per_match=n_rounds,
-                   title=f"Head-to-Head Avg Score/Round — {tournament_id}")
+                   title="Head-to-Head  ·  Avg Score per Round")
     console.print("  [green]heatmap.png[/green]")
 
     # 4. Forgiveness / Retaliation
-    _plots.behavioral(stats, out / "behavioral.png", title=f"Forgiveness vs Retaliation — {tournament_id}")
+    _plots.behavioral(stats, out / "behavioral.png",
+                      title="Forgiveness vs Retaliation")
     console.print("  [green]behavioral.png[/green]")
 
     # 5. Animated cooperation over time
     anim_path = _plots.coop_over_time_animated(
         stats, out / "coop_animated.mp4",
-        title=f"Cooperation Rate Over Time — {tournament_id}",
+        title="Cooperation Rate Over Time",
     )
     console.print(f"  [green]{anim_path.name}[/green]")
 
