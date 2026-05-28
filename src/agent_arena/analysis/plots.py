@@ -17,27 +17,131 @@ HERO_SIZE = (12, 6.27)   # 1800×940 → 1200×627 after scaling
 SQUARE_SIZE = (7.2, 7.2)  # 1080×1080
 
 
+_BG = "#111827"       # dark navy
+_FG = "#F9FAFB"       # near-white text
+_GRID = "#1F2937"     # subtle gridlines
+_MEDAL = ["#F59E0B", "#94A3B8", "#B45309"]  # gold, silver, bronze
+_DEFAULT = "#3B82F6"  # blue for mid-ranks
+_LAST = "#EF4444"     # red for last place
+
+_DISPLAY: dict[str, str] = {
+    "selfish": "Claude  ·  selfish",
+    "neutral": "Claude  ·  neutral",
+    "cooperative": "Claude  ·  cooperative",
+    "academic": "Claude  ·  academic",
+    "tit_for_tat": "Tit-for-Tat",
+    "tit_for_two_tats": "Tit-for-Two-Tats",
+    "always_cooperate": "Always Cooperate",
+    "always_defect": "Always Defect",
+    "grim_trigger": "Grim Trigger",
+    "pavlov": "Pavlov",
+    "random": "Random (50/50)",
+}
+
+# Haiku / Opus model variants share the same persona suffixes
+_MODEL_PREFIX: dict[str, str] = {
+    "haiku": "Haiku",
+    "opus": "Opus",
+    "sonnet": "Claude",
+}
+
+
 def _short(name: str) -> str:
     """claude-sonnet-4-6:selfish → selfish  |  tit_for_tat → tit_for_tat"""
     return name.split(":")[-1] if ":" in name else name
 
 
-def score_bar(stats: list[AgentStats], out_path: Path, title: str = "Total Score by Agent") -> None:
-    fig, ax = plt.subplots(figsize=HERO_SIZE)
-    labels = [_short(s.agent) for s in stats]
-    values = [s.total_score for s in stats]
-    colors = plt.cm.Blues_r(np.linspace(0.3, 0.8, len(stats)))  # type: ignore[attr-defined]
-    bars = ax.bar(labels, values, color=colors, edgecolor="white", linewidth=0.5)
-    ax.bar_label(bars, fmt="%.0f", padding=3, fontsize=10)
-    ax.set_title(title, fontsize=14, fontweight="bold", pad=12)
-    ax.set_ylabel("Total Score", fontsize=11)
-    ax.set_ylim(0, max(values) * 1.15)
-    ax.grid(axis="y", alpha=0.3)
-    ax.spines[["top", "right"]].set_visible(False)
-    plt.xticks(rotation=20, ha="right", fontsize=10)
-    fig.tight_layout()
+def _display(name: str) -> str:
+    """Return a human-readable label for an agent name."""
+    short = _short(name)
+    if short in _DISPLAY:
+        return _DISPLAY[short]
+    # Handle model-prefixed variants like "haiku:selfish"
+    parts = name.split(":")
+    if len(parts) == 2:
+        for key, prefix in _MODEL_PREFIX.items():
+            if key in parts[0]:
+                persona = parts[1]
+                base = _DISPLAY.get(f"__{persona}", persona)
+                return f"{prefix}  ·  {persona}"
+    return short.replace("_", " ").title()
+
+
+def score_bar(
+    stats: list[AgentStats],
+    out_path: Path,
+    title: str = "Tournament Scoreboard",
+    subtitle: str = "",
+) -> None:
+    """Dark-background horizontal scoreboard chart styled for LinkedIn."""
+    n = len(stats)
+    # Reverse so highest rank is at the top
+    ordered = list(reversed(stats))
+
+    labels = [_display(s.agent) for s in ordered]
+    scores_per_round = [s.mean_score_per_round for s in ordered]
+    coop_rates = [s.cooperation_rate for s in ordered]
+
+    # Assign bar colors: medal colors for top 3, red for last, blue for rest
+    bar_colors: list[str] = []
+    for i, s in enumerate(ordered):
+        rank = n - 1 - i  # rank 0 = first place (highest)
+        if rank < 3:
+            bar_colors.append(_MEDAL[rank])
+        elif rank == n - 1:
+            bar_colors.append(_LAST)
+        else:
+            bar_colors.append(_DEFAULT)
+
+    fig, ax = plt.subplots(figsize=HERO_SIZE, facecolor=_BG)
+    ax.set_facecolor(_BG)
+
+    y = np.arange(n)
+    bars = ax.barh(y, scores_per_round, color=bar_colors, height=0.6,
+                   edgecolor=_BG, linewidth=1.5)
+
+    # Score/round labels at end of each bar
+    x_max = max(scores_per_round)
+    for bar, spr, coop in zip(bars, scores_per_round, coop_rates):
+        ax.text(
+            bar.get_width() + x_max * 0.01,
+            bar.get_y() + bar.get_height() / 2,
+            f"{spr:.2f} pts/rd  ·  {coop:.0%} coop",
+            va="center", ha="left", fontsize=9.5, color=_FG, alpha=0.85,
+        )
+
+    # Rank labels on the left
+    rank_labels = ["#1", "#2", "#3"] + [f"#{i+1}" for i in range(3, n - 1)] + [f"#{n}"]
+    for i, (label, rank_lbl) in enumerate(zip(labels, reversed(rank_labels))):
+        ax.text(
+            -x_max * 0.01, i,
+            f"{rank_lbl}  {label}",
+            va="center", ha="right", fontsize=11, color=_FG,
+            fontweight="bold" if i >= n - 3 or i == n - 1 else "normal",
+        )
+
+    ax.set_xlim(-x_max * 0.35, x_max * 1.38)
+    ax.set_ylim(-0.6, n - 0.4)
+    ax.set_yticks([])
+    ax.set_xticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    # Subtle vertical gridlines
+    for v in np.linspace(0, x_max, 5):
+        ax.axvline(v, color=_GRID, linewidth=0.8, zorder=0)
+
+    # Title
+    top = 0.93 if not subtitle else 0.96
+    fig.text(0.5, top, title, ha="center", va="top",
+             fontsize=16, fontweight="bold", color=_FG)
+    if subtitle:
+        fig.text(0.5, 0.88, subtitle, ha="center", va="top",
+                 fontsize=11, color=_FG, alpha=0.6)
+
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.85))
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    fig.savefig(out_path, dpi=150, bbox_inches="tight", facecolor=_BG)
     plt.close(fig)
 
 

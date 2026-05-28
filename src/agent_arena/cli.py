@@ -338,7 +338,11 @@ def analyze(
     h2h = head_to_head(matches)
 
     # 1. Score bar
-    _plots.score_bar(stats, out / "score_bar.png", title=f"Total Score — {summary.game} tournament {tournament_id}")
+    _plots.score_bar(
+        stats, out / "score_bar.png",
+        title="Tournament Scoreboard",
+        subtitle=f"{summary.game}  ·  {summary.rounds_per_match} rounds  ·  {summary.total_matches} matches  ·  {tournament_id}",
+    )
     console.print("  [green]score_bar.png[/green]")
 
     # 2. Cooperation over time
